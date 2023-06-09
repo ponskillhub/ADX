@@ -5,7 +5,7 @@ import pandas as pd
 import threading
 from config import config
 
-NUM_OF_THREADS = 40
+NUM_OF_THREADS = config['number_of_threads']
 
 AAD_TENANT_ID = config['tenant_id']
 KUSTO_CLUSTER = config['cluster']
