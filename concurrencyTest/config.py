@@ -6,5 +6,5 @@ config = {
     'client_secret': '7ek8Q~E~qGxht.sfvuTqlXVc_pysKLYgvTHcUc6_',
     'cluster': 'https://ponsandboxadxtest1.eastus.kusto.windows.net',
     'database': 'rubrikadxpoc',
-    'number_of_threads': 2
+    'number_of_threads': 4000
 }

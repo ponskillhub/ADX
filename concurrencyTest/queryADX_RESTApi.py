@@ -1,72 +1,60 @@
-# pyton program to query ADX REST API using client authentication
-
 import requests
-import json
-import time
-import pandas as pd
-import threading
 from config import config
+import json
 
-NUM_OF_THREADS = config['number_of_threads']
-
-AAD_TENANT_ID = config['tenant_id']
-KUSTO_CLUSTER = config['cluster']
-KUSTO_DATABASE = config['database']
-
-
+token_endpoint = f"https://login.microsoftonline.com/{config['tenant_id']}/oauth2/token"
 client_id = config['client_id']
 client_secret = config['client_secret']
-
-QUERIES = ["StormEvents | sort by StartTime desc | take 1",
-           "StormEvents | sort by EndTime desc | take 1"]
-
-
-def get_access_token():
-    url = f"https://login.microsoftonline.com/{AAD_TENANT_ID}/oauth2/token"
-    payload = f"grant_type=client_credentials&client_id={client_id}&client_secret={client_secret}&resource=https://management.core.windows.net/"
-    headers = {
-        'Content-Type': 'application/x-www-form-urlencoded'
-    }
-    response = requests.request("POST", url, headers=headers, data=payload)
-    return response.json()['access_token']
+resource = "https://api.kusto.windows.net"
+database = config['database']
+cluster = config['cluster']
 
 
-access_token = get_access_token()
+# Create the payload for the request
+payload = {
+    "grant_type": "client_credentials",
+    "client_id": client_id,
+    "client_secret": client_secret,
+    "resource": resource
+}
 
-print("access_token: ", access_token)
+# Send the POST request to the token endpoint
+response = requests.post(token_endpoint, data=payload)
 
+# Check the response status
+if response.status_code == 200:
+    # Extract the access token from the response
+    access_token = response.json()["access_token"]
+    print("Access token:", access_token)
+else:
+    print("Error:", response.text)
 
-def execute_query(KUSTO_QUERY):
-    try:
-        # Execute the query
-        url = f"https://{KUSTO_CLUSTER}.kusto.windows.net/v2/rest/query"
-        payload = f"{KUSTO_QUERY}"
-        headers = {
-            'Accept': 'application/json',
-            'Content-Type': 'application/json',
-            'Authorization': f'Bearer {access_token}',
-            'Host': f'{KUSTO_CLUSTER}.kusto.windows.net'
+url = f"{cluster}/v2/rest/query"
+
+payload = {
+    "db": f"{database}",
+    "csl": "StormEvents | sort by StartTime desc | take 1",
+    "properties": {
+        "Options": {
+            "queryconsistency": "strongconsistency"
         }
-        response = requests.request("GET", url, headers=headers, data=payload)
-        print(response.text.encode('utf8'))
-    except Exception as error:
-        print(f"Error executing query: {error}")
+    }
+}
 
+headers = {
+    "Accept": "application/json",
+    "Authorization": f"Bearer {access_token}",
+    "Content-Type": "application/json; charset=utf-8",
+    "Host": "help.kusto.windows.net",
+}
 
-def execute_batch_queries(QUERIES):
-    for KUSTO_QUERY in QUERIES:
-        execute_query(KUSTO_QUERY)
+response = requests.post(url, data=json.dumps(payload), headers=headers)
 
-
-def execute_batch_queries_threaded(QUERIES):
-    threads = []
-    for i in range(NUM_OF_THREADS):
-        thread = threading.Thread(
-            target=execute_batch_queries, args=(QUERIES,))
-        threads.append(thread)
-        thread.start()
-    for thread in threads:
-        thread.join()
-
-
-execute_batch_queries_threaded(QUERIES)
+if response.status_code == 200:
+    data = response.json()
+    # Process the response data
+    print("Response:", data['Rows'])
+    print("Status code:", response.status_code)
+else:
+    print("Error:", response.text)
+    print("Status code:", response.status_code)
